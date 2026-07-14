@@ -1,0 +1,165 @@
+// Sistem Rekod Aktiviti Pelajar ADTEC KT — Jabatan Tenaga Manusia (JTM) Malaysia
+// Prisma schema (SQLite) — adapts the Supabase/PostgreSQL design from the PRD
+// to a local SQLite database so the demo system is fully functional offline.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+model Bengkel {
+  id          String   @id @default(cuid())
+  namaBengkel String   @unique
+  createdAt   DateTime @default(now())
+
+  profiles   Profile[]
+  aktiviti   Aktiviti[]
+}
+
+model Negeri {
+  id        String   @id @default(cuid())
+  namaNegeri String  @unique
+  createdAt DateTime @default(now())
+
+  daerah   Daerah[]
+  aktiviti Aktiviti[]
+}
+
+model Daerah {
+  id         String   @id @default(cuid())
+  namaDaerah String
+  negeriId   String
+  createdAt  DateTime @default(now())
+
+  negeri    Negeri   @relation(fields: [negeriId], references: [id], onDelete: Cascade)
+  aktiviti  Aktiviti[]
+
+  @@unique([namaDaerah, negeriId])
+}
+
+// ---------------------------------------------------------------------------
+// Users / Profiles
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  fullName      String
+  // Role: 'pengajar' | 'penyelaras' | 'penolong_pengarah' | 'admin'
+  role          String
+  passwordHash  String
+  // Active flag for soft-deactivate (admin)
+  active        Boolean  @default(true)
+  bengkelId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bengkel              Bengkel?  @relation(fields: [bengkelId], references: [id])
+  diciptaAktiviti      Aktiviti[] @relation("AktivitiDiciptaOleh")
+  disemakAktiviti      Aktiviti[] @relation("AktivitiDisemakOleh")
+  disahkanAktiviti     Aktiviti[] @relation("AktivitiDisahkanOleh")
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  sessions             Session[]
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  profileId   String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Aktiviti (main transactional table)
+// ---------------------------------------------------------------------------
+
+model Aktiviti {
+  id              String   @id @default(cuid())
+  tarikhPelaksanaan DateTime
+  namaAktiviti    String
+  bengkelId       String
+  negeriId        String
+  daerahId        String
+  namaPengurusAktiviti String
+  // Status: 'draf' | 'menunggu_semakan' | 'menunggu_pengesahan' | 'disahkan' | 'ditolak'
+  status          String   @default("draf")
+  catatanPenolakan String?
+  // Audit fields
+  diciptaOleh     String
+  disemakOleh     String?
+  disahkanOleh    String?
+  dihantarSemakanPada  DateTime?
+  dihantarPengesahanPada DateTime?
+  disahkanPada    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bengkel     Bengkel  @relation(fields: [bengkelId], references: [id])
+  negeri      Negeri   @relation(fields: [negeriId], references: [id])
+  daerah      Daerah   @relation(fields: [daerahId], references: [id])
+  pencipta    Profile  @relation("AktivitiDiciptaOleh", fields: [diciptaOleh], references: [id])
+  penyemak    Profile? @relation("AktivitiDisemakOleh", fields: [disemakOleh], references: [id])
+  pengesah    Profile? @relation("AktivitiDisahkanOleh", fields: [disahkanOleh], references: [id])
+  auditLogs   AuditLog[]
+
+  @@index([status])
+  @@index([diciptaOleh])
+  @@index([tarikhPelaksanaan])
+  @@index([negeriId])
+  @@index([daerahId])
+  @@index([bengkelId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit log (append-only — Admin can read; Pengajar/Penyelaras/PP only append)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  aktivitiId  String
+  // Tindakan: 'create' | 'submit' | 'review_forward' | 'return' | 'approve' | 'reject' | 'delete' | 'update' | 'bulk_submit' | 'bulk_review_forward' | 'bulk_approve' | 'login' | 'logout' | 'user_create' | 'user_update' | 'user_deactivate'
+  tindakan    String
+  olehId      String
+  catatan     String?
+  diciptaPada DateTime @default(now())
+
+  aktiviti Aktiviti @relation(fields: [aktivitiId], references: [id], onDelete: Cascade)
+  oleh     Profile  @relation(fields: [olehId], references: [id])
+
+  @@index([aktivitiId])
+  @@index([olehId])
+}
+
+// ---------------------------------------------------------------------------
+// In-app notifications (Pengajar gets notified when records are returned)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id          String   @id @default(cuid())
+  profileId   String
+  title       String
+  message     String
+  // Type: 'return' | 'submit' | 'approve' | 'reject' | 'system'
+  type        String   @default("system")
+  read        Boolean  @default(false)
+  aktivitiId  String?
+  createdAt   DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, read])
+}
