@@ -1,0 +1,706 @@
+
+========== PAGE 1 ==========
+PRODUCT REQUIREMENTS DOCUMENT
+SISTEM REKOD AKTIVITI PELAJAR
+ADTEC Kota Tinggi (ADTEC KT) — Jabatan Tenaga Manusia, Malaysia
+Versi Dokumen : 1.0
+Tarikh : 14 Julai 2026
+Status : Draf untuk Kelulusan Pembangunan
+Tumpuan Teknologi : Penjanaan aplikasi menggunakan z.ai (model GLM 5.2), pangkalan data & backend Supabase,
+hosting/deployment Netlify
+Reka Bentuk UI/UX : Moden – Glassmorphism
+Disediakan oleh : Jurutera Perisian, Jabatan Tenaga Manusia (JTM)
+========== PAGE 2 ==========
+Kandungan
+1. Pengenalan & Latar Belakang 3
+2. Objektif Sistem 3
+3. Skop Projek 3
+4. Definisi & Singkatan 4
+5. Peranan & Pengguna Sistem 4
+6. Aliran Kerja Keseluruhan Sistem (Workflow) 5
+7. Keperluan Fungsian (Functional Requirements) 6
+8. Struktur Data Aktiviti 9
+9. Keperluan Bukan Fungsian (Non-Functional) 10
+10. Reka Bentuk UI/UX – Glassmorphism 10
+11. Seni Bina Sistem (System Architecture) 12
+12. Reka Bentuk Pangkalan Data (Supabase / PostgreSQL) 13
+13. Row Level Security (RLS) & Keselamatan 15
+14. Data Dummy / Seed Data 16
+15. Modul Statistik & Papan Pemuka 18
+16. Senario Penggunaan (User Stories) 19
+17. Kriteria Penerimaan (Acceptance Criteria) 20
+18. Pelan Pembangunan & Deployment 21
+19. Risiko & Mitigasi 22
+20. Lampiran – Skrip SQL Penuh 22
+========== PAGE 3 ==========
+1. Pengenalan & Latar Belakang
+ADTEC Kota Tinggi (ADTEC KT) merupakan sebuah institusi latihan teknikal di bawah Jabatan Tenaga Manusia (JTM), Kementerian Sumber
+Manusia. Sebagai sebahagian daripada tanggungjawab akademik dan kokurikulum, para pengajar di setiap bengkel (workshop) kerap
+menganjurkan pelbagai aktiviti pelajar – termasuk lawatan industri, program khidmat masyarakat, pertandingan kemahiran, seminar, dan
+program kerjasama industri.
+Pada masa ini, rekod aktiviti-aktiviti tersebut dikumpul dan disahkan secara manual (borang kertas / emel / Excel yang dikongsi),
+menyebabkan proses semakan oleh Penyelaras dan pengesahan oleh Penolong Pengarah mengambil masa yang lama, sukar dijejaki, dan
+tiada paparan statistik pelaksanaan secara masa nyata (real-time) mengikut daerah, negeri, atau tempoh masa.
+Sistem Rekod Aktiviti Pelajar ADTEC KT dicadangkan untuk menggantikan proses manual ini dengan aplikasi web berpusat yang
+membolehkan aliran kerja tiga peringkat – input oleh Pengajar → semakan oleh Penyelaras → pengesahan oleh Penolong
+Pengarah – berlaku secara digital, telus, dan boleh dijejaki, lengkap dengan papan pemuka statistik automatik.
+2. Objektif Sistem
+Menyediakan platform digital berpusat untuk merekod aktiviti pelajar ADTEC KT menggantikan proses manual berasaskan kertas/Excel.
+Mewujudkan aliran kerja kelulusan tiga peringkat (Pengajar → Penyelaras → Penolong Pengarah) yang jelas, telus dan boleh diaudit.
+Membolehkan pengajar menghantar data aktiviti secara individu atau pukal (bulk) untuk semakan.
+Membolehkan Penolong Pengarah mengesahkan atau menolak data secara individu atau pukal.
+Menjana statistik pelaksanaan aktiviti secara automatik mengikut tempoh (harian, mingguan, bulanan, tahunan) dan mengikut lokasi
+(daerah & negeri).
+Memaparkan statistik ringkas pelaksanaan aktiviti yang telah disahkan pada halaman utama (dashboard awam dalaman) sistem.
+Membina sistem menggunakan seni bina moden: backend/pangkalan data Supabase, antara muka dijana melalui z.ai (model GLM 5.2),
+dan deployment melalui Netlify, dengan reka bentuk UI/UX bergaya glassmorphism.
+3. Skop Projek
+Dalam skop:
+Modul log masuk (login) berasaskan peranan (role-based) untuk 3 peranan utama: Pengajar, Penyelaras, Penolong Pengarah (+ 1
+peranan Admin pilihan untuk urus tetap pengguna & data rujukan).
+Modul input, senarai, hantar & padam aktiviti (Pengajar).
+Modul semakan & hantar ke Penolong Pengarah (Penyelaras).
+Modul pengesahan / penolakan aktiviti (Penolong Pengarah).
+Modul jadual paparan data aktiviti (bilangan, tarikh, nama aktiviti, bengkel, daerah, negeri, pengurus aktiviti).
+Modul statistik & papan pemuka (dashboard) – harian/mingguan/bulanan/tahunan, mengikut daerah & negeri.
+Pangkalan data Supabase (PostgreSQL) lengkap dengan Row Level Security (RLS) dan data dummy/seed untuk demonstrasi.
+Deployment aplikasi ke Netlify.
+Luar skop (Fasa 1):
+Aplikasi mudah alih native (iOS/Android) – hanya web responsif disediakan.
+Integrasi dengan sistem HRMIS/e-Latihan JTM sedia ada (dicadangkan untuk fasa akan datang).
+Modul kewangan / tuntutan perbelanjaan aktiviti.
+Notifikasi SMS (e-mel/dalam-sistem sahaja pada Fasa 1).
+========== PAGE 4 ==========
+4. Definisi & Singkatan
+Istilah Penerangan
+ADTEC KT Kolej Teknologi Termaju Jabatan Tenaga Manusia, Kampus Kuala Terengganu – institusi di bawah JTM.
+JTM Jabatan Tenaga Manusia, Kementerian Sumber Manusia Malaysia.
+Pengajar Kakitangan akademik yang menganjur & memasukkan rekod aktiviti pelajar.
+Penyelaras Penyelaras bengkel/program yang menyemak data yang dimasukkan oleh Pengajar sebelum dihantar untuk pengesahan.
+Penolong Pengarah Pegawai peringkat pengurusan yang mengesahkan (approve) atau menolak (reject) data akhir aktiviti.
+Bengkel Unit/jabatan teknikal (contoh: Bengkel Elektrik, Bengkel Automotif) yang terlibat dengan aktiviti.
+RLS Row Level Security – ciri keselamatan PostgreSQL/Supabase untuk mengehadkan akses data mengikut peranan/baris.
+GLM 5.2 Model bahasa besar oleh z.ai yang digunakan untuk menjana kod aplikasi (frontend/backend logic).
+Glassmorphism Gaya reka bentuk UI moden menggunakan kesan kaca kabur (frosted glass), lutsinar, bayang lembut & kecerahan warna
+latar.
+Status Aktiviti Peringkat semasa rekod: Draf, Menunggu Semakan, Menunggu Pengesahan, Disahkan, Ditolak.
+5. Peranan & Pengguna Sistem
+Sistem menggunakan model akses berasaskan peranan (Role-Based Access Control – RBAC) dengan log masuk (username/e-mel & kata
+laluan) wajib bagi setiap peranan.
+1. Pengajar (Instructor)
+Log masuk menggunakan akaun sendiri (dikaitkan dengan Bengkel tertentu).
+Memasukkan (create) rekod aktiviti baharu.
+Melihat senarai aktiviti yang telah dimasukkan (status Draf) sebelum dihantar.
+Memadam (delete) rekod satu persatu jika terdapat kesilapan sebelum dihantar.
+Menghantar rekod kepada Penyelaras – secara individu (satu-satu) atau pukal (bulk submit, pilih banyak rekod sekali gus).
+Melihat status rekod yang telah dihantar (Menunggu Semakan / Disemak / Disahkan / Ditolak) – termasuk sebab penolakan jika
+ada.
+2. Penyelaras (Coordinator)
+Log masuk dan melihat semua rekod berstatus "Menunggu Semakan" daripada semua Pengajar di bawah seliaannya.
+Menyemak (review) butiran setiap rekod aktiviti.
+Menghantar (forward) rekod yang telah disemak kepada Penolong Pengarah untuk pengesahan – individu atau pukal.
+Boleh menghantar semula (kembalikan) rekod kepada Pengajar berkenaan jika terdapat maklumat tidak lengkap/tidak tepat,
+berserta catatan.
+Melihat statistik ringkas rekod yang telah/belum disemak.
+3. Penolong Pengarah (Assistant Director)
+Log masuk dan melihat semua rekod berstatus "Menunggu Pengesahan" yang telah dihantar oleh Penyelaras.
+Mengesahkan (approve) rekod secara individu atau pukal.
+Menolak (reject) rekod secara individu, berserta catatan/sebab penolakan yang wajib diisi.
+Mengakses papan pemuka statistik penuh (harian/mingguan/bulanan/tahunan, mengikut daerah/negeri) bagi semua rekod yang
+telah disahkan.
+4. Admin (Pilihan – disyorkan untuk urus tetap sistem)
+Mengurus akaun pengguna (cipta/kemaskini/nyahaktif akaun Pengajar, Penyelaras, Penolong Pengarah).
+Mengurus data rujukan (senarai Bengkel, Negeri, Daerah).
+Melihat log audit keseluruhan sistem.
+========== PAGE 5 ==========
+6. Aliran Kerja Keseluruhan Sistem (Workflow)
+Setiap rekod aktiviti melalui lima (5) status sepanjang kitaran hayatnya:
+1. DRAF 2. MENUNGGU SEMAKAN 3. MENUNGGU PENGESAHAN 4a. DISAHKAN
+Pengajar input data, boleh ➤ Dihantar oleh Pengajar kepada ➤ Dihantar oleh Penyelaras kepada ➤ Diluluskan oleh Penolong Pengarah
+edit/padam Penyelaras Penolong Pengarah – masuk statistik
+4b. DITOLAK (oleh Penyelaras) 4c. DITOLAK (oleh Penolong Pengarah)
+Kembali ke Pengajar untuk pembetulan → kembali ke Draf Kembali ke Penyelaras / Pengajar berserta sebab → kembali ke Draf
+Nota: Rekod yang "Ditolak" pada mana-mana peringkat akan dikembalikan ke status Draf pada senarai Pengajar berkenaan, lengkap dengan catatan sebab penolakan, supaya
+boleh dibetulkan dan dihantar semula.
+6.1 Gambar Rajah Aliran Ringkas (Swimlane)
+Peringkat Tindakan Status Terhasil
+Pengajar Cipta rekod → simpan sebagai draf → semak senarai sendiri → padam DRAF → MENUNGGU_SEMAKAN
+jika salah → hantar (individu/pukal)
+Penyelaras Semak senarai masuk → buka butiran → hantar ke PP (individu/pukal) MENUNGGU_SEMAKAN →
+atau pulangkan ke Pengajar MENUNGGU_PENGESAHAN atau → DRAF (ditolak)
+Penolong Pengarah Semak senarai masuk → sahkan (individu/pukal) atau tolak (individu, MENUNGGU_PENGESAHAN → DISAHKAN atau →
+dengan sebab) DRAF (ditolak)
+Sistem Kemaskini statistik automatik apabila status = DISAHKAN Data masuk paparan Statistik & Dashboard
+========== PAGE 6 ==========
+7. Keperluan Fungsian (Functional Requirements)
+7.1 Modul Log Masuk & Pengesahan Identiti
+FR-1.1 Sistem mesti menyediakan skrin log masuk (e-mel/ID pengguna + kata laluan) untuk keempat-empat peranan.
+FR-1.2 Sistem mesti mengesahkan bukti kelayakan (credentials) menggunakan Supabase Auth dan mengarahkan pengguna ke papan
+pemuka mengikut peranan selepas log masuk berjaya.
+FR-1.3 Sistem mesti memaparkan mesej ralat sekiranya kata laluan/ID salah, dan menyekat sesi tanpa log masuk yang sah (route
+protection).
+FR-1.4 Sistem mesti menyediakan fungsi "Log Keluar" dan "Tukar Kata Laluan".
+FR-1.5 Sistem mesti menyediakan fungsi "Lupa Kata Laluan" (reset melalui e-mel, disokong oleh Supabase Auth).
+7.2 Modul Pengajar
+FR-2.1 Pengajar boleh memasukkan rekod aktiviti baharu melalui borang dengan medan: tarikh pelaksanaan, nama aktiviti, bengkel
+terlibat, negeri, daerah, dan nama pengurus aktiviti.
+FR-2.2 Sistem mesti memilih senarai Daerah secara dinamik berdasarkan Negeri yang dipilih (dropdown berantai).
+FR-2.3 Pengajar boleh melihat senarai semua rekod yang telah dimasukkan (status DRAF) dalam bentuk jadual sebelum dihantar.
+FR-2.4 Pengajar boleh mengedit rekod berstatus DRAF sebelum dihantar.
+FR-2.5 Pengajar boleh memadam (delete) rekod satu persatu daripada senarai draf jika terdapat kesilapan.
+FR-2.6 Pengajar boleh menghantar rekod kepada Penyelaras secara individu (satu rekod) melalui butang "Hantar" pada setiap baris.
+FR-2.7 Pengajar boleh memilih pelbagai rekod (checkbox) dan menghantar secara pukal (bulk submit) melalui satu butang "Hantar
+Terpilih".
+FR-2.8 Pengajar boleh melihat senarai berasingan bagi rekod mengikut status: Draf, Menunggu Semakan, Menunggu Pengesahan,
+Disahkan, Ditolak – lengkap dengan sebab penolakan (jika berkaitan).
+7.3 Modul Penyelaras
+FR-3.1 Penyelaras boleh melihat senarai semua rekod berstatus "Menunggu Semakan" dalam bentuk jadual.
+FR-3.2 Penyelaras boleh membuka butiran penuh setiap rekod untuk semakan.
+FR-3.3 Penyelaras boleh menghantar rekod yang disemak kepada Penolong Pengarah secara individu atau pukal (checkbox multi-select).
+FR-3.4 Penyelaras boleh memulangkan (reject) rekod kepada Pengajar berkenaan berserta catatan ringkas sebab pemulangan.
+FR-3.5 Sistem mesti menghantar notifikasi dalam-sistem (in-app) kepada Pengajar apabila rekod dipulangkan.
+7.4 Modul Penolong Pengarah
+FR-4.1 Penolong Pengarah boleh melihat senarai semua rekod berstatus "Menunggu Pengesahan" dalam bentuk jadual.
+FR-4.2 Penolong Pengarah boleh mengesahkan (approve) rekod secara individu melalui butang pada setiap baris.
+FR-4.3 Penolong Pengarah boleh memilih pelbagai rekod dan mengesahkan secara pukal (bulk approve).
+FR-4.4 Penolong Pengarah boleh menolak (reject) rekod secara individu, dengan medan catatan sebab penolakan yang wajib diisi.
+FR-4.5 Rekod yang disahkan mesti dikemaskini status kepada "DISAHKAN" dan serta-merta dikira dalam modul statistik.
+7.5 Modul Jadual & Paparan Data
+FR-5.1 Sistem mesti memaparkan data aktiviti dalam bentuk jadual dengan lajur: Bil., Tarikh Pelaksanaan, Nama Aktiviti, Nama Bengkel
+Terlibat, Lokasi Daerah, Lokasi Negeri, Nama Pengurus Aktiviti, ditambah lajur Status & Tindakan.
+FR-5.2 Jadual mesti menyokong penyusunan (sort), carian (search) dan penapisan (filter mengikut tarikh/bengkel/negeri/daerah/status).
+FR-5.3 Jadual mesti menyokong "pagination" bagi memaparkan rekod dalam kelompok (contoh: 10/25/50 baris setiap muka surat).
+FR-5.4 Sistem mesti menyediakan eksport data (CSV/Excel) bagi rekod yang telah disahkan.
+7.6 Modul Statistik & Papan Pemuka (rujuk juga Bahagian 15)
+FR-6.1 Halaman utama sistem mesti memaparkan statistik ringkas keseluruhan aktiviti yang disahkan (kad ringkasan/summary cards).
+FR-6.2 Sistem mesti menjana statistik bilangan pelaksanaan aktiviti mengikut tempoh: Harian, Mingguan, Bulanan, Tahunan.
+FR-6.3 Sistem mesti menjana statistik bilangan pelaksanaan mengikut Daerah dan mengikut Negeri, bagi setiap tempoh
+(harian/mingguan/bulanan/tahunan).
+FR-6.4 Statistik mesti dipaparkan dalam bentuk carta (bar/line/pie chart) dan jadual ringkasan.
+7.7 Modul Admin (Pilihan)
+========== PAGE 7 ==========
+FR-7.1 Admin boleh cipta/kemaskini/nyahaktifkan akaun pengguna dan menetapkan peranan.
+FR-7.2 Admin boleh mengurus senarai rujukan Bengkel, Negeri, dan Daerah.
+FR-7.3 Admin boleh melihat log audit (siapa buat apa, bila) bagi setiap rekod aktiviti.
+========== PAGE 8 ==========
+8. Struktur Data Aktiviti (Paparan Jadual)
+Jadual utama paparan data aktiviti (digunakan konsisten pada semua peringkat Pengajar/Penyelaras/Penolong Pengarah) mengandungi
+lajur berikut:
+Bil. Lajur Jenis Data Penerangan
+1 Bilangan Auto (Nombor siri) Nombor giliran baris, dijana automatik oleh paparan (bukan disimpan dalam DB).
+2 Tarikh Pelaksanaan Tarikh (DATE) Tarikh sebenar aktiviti dijalankan.
+3 Nama Aktiviti Teks Nama/tajuk aktiviti pelajar.
+4 Nama Bengkel Terlibat Teks (Rujukan) Bengkel/jabatan teknikal yang menganjurkan – dipilih daripada senarai rujukan.
+5 Lokasi Daerah Aktiviti Teks (Rujukan) Daerah tempat aktiviti dijalankan.
+6 Lokasi Negeri Aktiviti Teks (Rujukan) Negeri tempat aktiviti dijalankan.
+7 Nama Pengurus Aktiviti Teks Nama pegawai/pengajar yang menguruskan aktiviti berkenaan.
+8 Status Enum Draf / Menunggu Semakan / Menunggu Pengesahan / Disahkan / Ditolak.
+9. Keperluan Bukan Fungsian (Non-Functional Requirements)
+Kategori Keperluan
+Kebolehgunaan (Usability) Antara muka moden gaya glassmorphism, responsif (desktop, tablet, mudah alih), navigasi tidak melebihi 3 klik untuk
+sebarang tindakan utama.
+Prestasi Muat turun senarai/jadual < 2 saat bagi 500 rekod; carta statistik dijana < 3 saat.
+Keselamatan Autentikasi Supabase Auth (JWT), Row Level Security pada setiap jadual, kata laluan disulitkan (hashing), sambungan
+HTTPS/TLS penuh.
+Kebolehskalaan Seni bina serverless (Supabase + Netlify) membolehkan skala automatik mengikut beban.
+Kebolehsediaan Sasaran uptime 99.5% (bergantung SLA Supabase & Netlify).
+Kebolehauditan Setiap tindakan hantar/semak/sah/tolak direkod dalam jadual log audit dengan cap masa & pengguna.
+Kebolehcapaian Kontras warna teks/latar glass mematuhi WCAG AA, saiz sentuhan (touch target) minimum 44px pada peranti mudah alih.
+(Accessibility)
+Penyetempatan Bahasa Melayu sebagai bahasa utama antara muka; format tarikh DD/MM/YYYY.
+(Localization)
+========== PAGE 9 ==========
+10. Reka Bentuk UI/UX – Glassmorphism
+Reka bentuk visual sistem menggunakan gaya Glassmorphism – kad/panel separa lutsinar dengan kesan kabur latar (backdrop-filter:
+blur()), sempadan nipis bercahaya, bayang lembut, dan latar belakang gradien berwarna supaya kesan "kaca" kelihatan jelas.
+10.1 Prinsip Reka Bentuk
+Latar belakang aplikasi menggunakan gradien lembut (contoh: biru laut → teal → putih) supaya lapisan kaca kelihatan jelas di atasnya.
+Semua kad (dashboard cards, borang, jadual, modal) menggunakan background: rgba(255,255,255,0.15–0.25), backdrop-filter:
+blur(12–20px), sempadan 1px solid rgba(255,255,255,0.3), dan border-radius: 16–20px.
+Bayang lembut (box-shadow) digunakan untuk kedalaman (depth), bukan garis keras.
+Butang utama menggunakan gradien warna jenama (teal/biru) dengan kesan "hover glow".
+Ikon menggunakan set garis nipis (outline icon set) – konsisten dan ringan.
+Tipografi: fon sans-serif moden (contoh: Inter / Poppins / Segoe UI), hierarki jelas antara tajuk, subtajuk dan teks badan.
+Mod terang (light mode) sebagai lalai; mod gelap (dark mode) glassmorphism disediakan sebagai pilihan pengguna (togol).
+10.2 Palet Warna Dicadangkan
+Peranan Warna Kod Hex Kegunaan
+Primary – Deep Teal #0D3B52 Tajuk, teks penting, latar navigasi
+Accent – Aqua #12A3A8 Butang utama, aksen, pautan aktif
+Accent 2 – Mint #7FD6C0 Gradien latar, hiasan kad
+Success #2FBF71 Status "Disahkan"
+Warning #E0A800 Status "Menunggu Semakan/Pengesahan"
+Danger #E4572E Status "Ditolak", butang padam
+Glass Surface rgba(255,255,255,0.18) Latar kad/panel kaca
+Neutral Text #1C2B36 Teks badan atas latar terang
+10.3 Senarai Skrin / Halaman Utama
+Halaman Peranan Akses Fungsi Utama
+Halaman Log Masuk Semua Log masuk, lupa kata laluan
+Halaman Utama / Dashboard Awam Semua (selepas log masuk) Statistik ringkas keseluruhan aktiviti disahkan (kad ringkasan + carta)
+Papan Pemuka Pengajar Pengajar Borang input, senarai draf, senarai status hantaran
+Papan Pemuka Penyelaras Penyelaras Senarai menunggu semakan, butiran, hantar/pulangkan
+Papan Pemuka Penolong Pengarah Penolong Pengarah Senarai menunggu pengesahan, sahkan/tolak, statistik penuh
+Halaman Statistik & Laporan Penyelaras, Penolong Pengarah, Admin Carta harian/mingguan/bulanan/tahunan, mengikut daerah/negeri, eksport
+Halaman Pentadbiran Admin Urus pengguna, urus data rujukan, log audit
+Tetapan Akaun Semua Tukar kata laluan, kemaskini profil
+========== PAGE 10 ==========
+11. Seni Bina Sistem (System Architecture)
+11.1 Tindanan Teknologi (Tech Stack)
+Lapisan Teknologi
+Penjanaan Kod Aplikasi z.ai – model GLM 5.2 (menjana kod frontend React/Next.js + Tailwind CSS dan logik integrasi Supabase)
+Frontend React (Next.js/Vite) + Tailwind CSS, kesan glassmorphism melalui utiliti CSS tersuai (backdrop-blur)
+Backend / API Supabase (auto-generated REST & realtime API melalui PostgREST, Supabase Edge Functions untuk logik pukal/bulk
+approve & statistik)
+Pangkalan Data Supabase PostgreSQL dengan Row Level Security (RLS)
+Pengesahan Identiti Supabase Auth (Email/Password, JWT)
+Storan Fail (jika perlu – lampiran Supabase Storage
+gambar aktiviti)
+Hosting / Deployment Netlify (Continuous Deployment daripada repositori Git)
+Carta & Visualisasi Recharts / Chart.js pada frontend
+11.2 Gambar Rajah Seni Bina Peringkat Tinggi
+Frontend
+Pengguna Supabase Auth + API PostgreSQL DB
+Pengajar / Penyelaras / Penolong ↔ React/Next.js + Tailwind ↔ PostgREST / Edge Functions / ↔ Jadual + RLS Policies + Data
+(Glassmorphism UI) – dihoskan di
+Pengarah / Admin (Pelayar Web) Realtime Dummy
+Netlify
+11.3 Aliran Deployment
+1. Kod aplikasi dijana & disunting menggunakan z.ai (GLM 5.2) berdasarkan spesifikasi PRD ini.
+2. Kod disimpan dalam repositori Git (contoh: GitHub) yang disambungkan ke akaun Netlify.
+3. Skema pangkalan data & RLS policies dijalankan pada projek Supabase (rujuk Bahagian 12 & 13) melalui SQL Editor / Migration.
+4. Data dummy (Bahagian 14) dimasukkan ke dalam projek Supabase sebagai data permulaan (seed).
+5. Pembolehubah persekitaran (SUPABASE_URL, SUPABASE_ANON_KEY) ditetapkan dalam tetapan Environment Variables Netlify.
+6. Netlify membina (build) & menghoskan aplikasi secara automatik setiap kali kod dikemaskini (Continuous Deployment).
+7. Ujian penerimaan pengguna (UAT) dijalankan menggunakan akaun dummy bagi setiap peranan.
+========== PAGE 11 ==========
+12. Reka Bentuk Pangkalan Data (Supabase / PostgreSQL)
+12.1 Rajah Hubungan Entiti (ERD) – Ringkasan
+Jadual Hubungan
+profiles 1 profil = 1 pengguna Supabase Auth; ada peranan (role) & pautan ke bengkel.
+bengkel Senarai rujukan bengkel/unit teknikal; dirujuk oleh profiles & aktiviti.
+negeri Senarai 16 negeri/wilayah Malaysia (rujukan).
+daerah Senarai daerah; setiap daerah tergolong dalam satu negeri.
+aktiviti Jadual transaksi utama – setiap rekod aktiviti merujuk kepada bengkel, negeri, daerah, dan profiles
+(pencipta/penyemak/pengesah).
+audit_log Merekod setiap tindakan (create/submit/review/approve/reject) terhadap setiap aktiviti.
+12.2 Skema Jadual Terperinci
+12.2.1 profiles
+Lajur Jenis Penerangan
+id uuid (PK, = auth.users.id) ID pengguna Supabase Auth
+full_name text Nama penuh
+email text E-mel log masuk
+role text (enum) 'pengajar' | 'penyelaras' | 'penolong_pengarah' | 'admin'
+bengkel_id uuid (FK → bengkel.id, nullable) Bengkel berkaitan (untuk Pengajar)
+created_at timestamptz Tarikh akaun dicipta
+12.2.2 bengkel / negeri / daerah
+Jadual Lajur Penerangan
+bengkel id (uuid, PK), nama_bengkel (text) Contoh: Bengkel Elektrik, Bengkel Automotif
+negeri id (uuid, PK), nama_negeri (text) 16 negeri/wilayah Malaysia
+daerah id (uuid, PK), nama_daerah (text), negeri_id (FK → negeri.id) Daerah di bawah negeri berkaitan
+12.2.3 aktiviti (Jadual Utama)
+Lajur Jenis Penerangan
+id uuid (PK, default gen_random_uuid()) ID unik rekod
+tarikh_pelaksanaan date Tarikh aktiviti dijalankan
+nama_aktiviti text Nama aktiviti
+bengkel_id uuid (FK → bengkel.id) Bengkel terlibat
+negeri_id uuid (FK → negeri.id) Lokasi negeri
+daerah_id uuid (FK → daerah.id) Lokasi daerah
+nama_pengurus_aktiviti text Nama pengurus/penyelaras aktiviti di lapangan
+status text (enum) 'draf' | 'menunggu_semakan' | 'menunggu_pengesahan' | 'disahkan' | 'ditolak'
+catatan_penolakan text (nullable) Sebab penolakan (diisi oleh Penyelaras/Penolong Pengarah)
+dicipta_oleh uuid (FK → profiles.id) Pengajar yang mencipta rekod
+disemak_oleh uuid (FK → profiles.id, nullable) Penyelaras yang menyemak
+disahkan_oleh uuid (FK → profiles.id, nullable) Penolong Pengarah yang mengesahkan
+dihantar_semakan_pada timestamptz (nullable) Cap masa hantar kepada Penyelaras
+dihantar_pengesahan_pada timestamptz (nullable) Cap masa hantar kepada Penolong Pengarah
+disahkan_pada timestamptz (nullable) Cap masa pengesahan akhir
+created_at timestamptz Cap masa rekod dicipta
+updated_at timestamptz Cap masa kemaskini terakhir
+========== PAGE 12 ==========
+12.2.4 audit_log
+Lajur Jenis Penerangan
+id bigint (PK, identity) ID log
+aktiviti_id uuid (FK → aktiviti.id) Rekod berkaitan
+tindakan text 'create' | 'submit' | 'review_forward' | 'return' | 'approve' | 'reject'
+oleh uuid (FK → profiles.id) Pengguna yang membuat tindakan
+catatan text (nullable) Nota tambahan
+dicipta_pada timestamptz Cap masa tindakan
+12.3 Skrip DDL Ringkas (rujuk Lampiran untuk skrip penuh)
+create type user_role as enum ('pengajar','penyelaras','penolong_pengarah','admin');
+create type aktiviti_status as enum
+('draf','menunggu_semakan','menunggu_pengesahan','disahkan','ditolak');
+create table aktiviti (
+id uuid primary key default gen_random_uuid(),
+tarikh_pelaksanaan date not null,
+nama_aktiviti text not null,
+bengkel_id uuid references bengkel(id),
+negeri_id uuid references negeri(id),
+daerah_id uuid references daerah(id),
+nama_pengurus_aktiviti text not null,
+status aktiviti_status not null default 'draf',
+catatan_penolakan text,
+dicipta_oleh uuid references profiles(id) not null,
+disemak_oleh uuid references profiles(id),
+disahkan_oleh uuid references profiles(id),
+created_at timestamptz default now(),
+updated_at timestamptz default now()
+);
+========== PAGE 13 ==========
+13. Row Level Security (RLS) & Keselamatan
+RLS diaktifkan pada semua jadual data (aktiviti, profiles, audit_log). Polisi umum adalah seperti berikut:
+Peranan SELECT INSERT UPDATE
+Pengajar Hanya rekod yang dicipta sendiri (semua Boleh cipta rekod baharu (status = Hanya rekod sendiri berstatus 'draf'
+status, untuk jejak status) draf, dicipta_oleh = auth.uid()) (edit/padam/hantar)
+Penyelaras Rekod berstatus 'menunggu_semakan' & ke Tiada (tidak cipta rekod) Rekod berstatus 'menunggu_semakan'
+atas dalam bengkel seliaannya sahaja (hantar ke PP / pulangkan)
+Penolong Pengarah Rekod berstatus 'menunggu_pengesahan' & Tiada Rekod berstatus
+'disahkan' (semua bengkel/daerah) 'menunggu_pengesahan' sahaja
+(sah/tolak)
+Admin Semua rekod Semua Semua (urus tetap)
+13.1 Contoh Polisi RLS (SQL)
+alter table aktiviti enable row level security;
+-- Pengajar hanya nampak rekod sendiri
+create policy "pengajar_select_own"
+on aktiviti for select
+using (
+dicipta_oleh = auth.uid()
+or exists (
+select 1 from profiles p
+where p.id = auth.uid()
+and p.role in ('penyelaras','penolong_pengarah','admin')
+)
+);
+-- Pengajar hanya boleh insert rekod sendiri berstatus draf
+create policy "pengajar_insert_own"
+on aktiviti for insert
+with check (dicipta_oleh = auth.uid());
+-- Pengajar hanya boleh update/padam rekod sendiri semasa draf
+create policy "pengajar_update_own_draf"
+on aktiviti for update
+using (dicipta_oleh = auth.uid() and status = 'draf');
+-- Penyelaras hanya boleh update rekod status menunggu_semakan
+create policy "penyelaras_update_review"
+on aktiviti for update
+using (
+status = 'menunggu_semakan'
+and exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'penyelaras')
+);
+-- Penolong Pengarah hanya boleh update rekod status menunggu_pengesahan
+create policy "pp_update_confirm"
+on aktiviti for update
+using (
+status = 'menunggu_pengesahan'
+and exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'penolong_pengarah')
+);
+13.2 Keselamatan Tambahan
+Semua kata laluan diuruskan & di-hash oleh Supabase Auth (bcrypt) – tiada kata laluan disimpan dalam bentuk teks biasa.
+Sesi log masuk menggunakan JSON Web Token (JWT) dengan tempoh luput (expiry) & refresh token.
+Kunci service_role Supabase TIDAK dibenarkan digunakan pada sisi frontend; hanya anon key + RLS digunakan pada client.
+Edge Function berasingan (menggunakan service role secara selamat di sisi server) digunakan untuk operasi pukal (bulk
+approve/submit) supaya konsisten dari segi transaksi.
+Log audit tidak boleh dipadam oleh mana-mana peranan selain Admin (append-only bagi Pengajar/Penyelaras/PP).
+========== PAGE 14 ==========
+14. Data Dummy / Seed Data
+Data dummy berikut dimasukkan terus ke dalam pangkalan data Supabase (backend sebenar) bagi tujuan demonstrasi & ujian
+penerimaan (UAT), supaya sistem boleh diuji dalam keadaan berfungsi penuh tanpa perlu memasukkan data secara manual.
+14.1 Akaun Pengguna Dummy (Supabase Auth + profiles)
+Nama E-mel (Log Masuk) Kata Laluan Dummy Peranan Bengkel
+Admin Sistem admin@adtec-kt.edu.my Admin@2026 admin –
+En. Ahmad Fauzi ahmad.fauzi@adtec-kt.edu.my Pengajar@123 pengajar Bengkel Elektrik
+Pn. Siti Nur Aisyah siti.aisyah@adtec-kt.edu.my Pengajar@123 pengajar Bengkel ICT
+En. Rizal Hakim rizal.hakim@adtec-kt.edu.my Pengajar@123 pengajar Bengkel Automotif
+Pn. Noraini Yusof noraini.yusof@adtec-kt.edu.my Penyelaras@123 penyelaras –
+En. Zulkifli Omar zulkifli.omar@adtec-kt.edu.my Penyelaras@123 penyelaras –
+Tuan Hj. Rosli Ibrahim rosli.ibrahim@adtec-kt.edu.my PPengarah@123 penolong_pengarah –
+Kata laluan dummy di atas adalah untuk persekitaran pembangunan/UAT sahaja. Semua kata laluan mesti ditukar sebelum sistem dilancarkan ke
+persekitaran produksi sebenar.
+14.2 Data Rujukan Dummy – Bengkel
+Bil. Nama Bengkel
+1 Tek. Pendawaian Elektrik 3 Fasa
+2 Tek. Penyejukbekuan & Penyamanan Udara
+3 Tek. Komputer (Sistem)
+4 Diploma Tek. Elektrik (Kuasa)
+5 Tek. Penyenggaraan Mekanikal
+6 Tek. Pembuatan (Pemesinan)
+7 Tek. Pem. Paip Minyak & Gas
+8 Tek. Binaan (Berasaskan Kayu)
+9 Tek. Binaan (Paip & Sanitari)
+10 Tek. Binaan (Sivil & Struktur)
+14.3 Data Rujukan Dummy – Negeri & Daerah (contoh sampel)
+Negeri Contoh Daerah
+Johor Kota Tinggi, Johor Bahru, Kluang, Batu Pahat
+Selangor Petaling, Klang, Gombak, Hulu Langat
+Kelantan Kota Bharu, Pasir Mas, Tanah Merah
+Melaka Melaka Tengah, Alor Gajah, Jasin
+Pahang Kuantan, Temerloh, Bentong
+(Skrip penuh 16 negeri & senarai daerah disediakan dalam Lampiran – Bahagian 20)
+14.4 Contoh Data Aktiviti Dummy (Rangkuman Semua Status)
+Bil. Tarikh Nama Aktiviti Bengkel Daerah Negeri Pengurus Status
+Aktiviti
+1 03/02/2026 Lawatan Industri ke Pabrik Automotif Bengkel Kota Tinggi Johor Rizal Hakim Disahkan
+Automotif
+2 10/02/2026 Program Khidmat Masyarakat Kg. Bekok Bengkel Elektrik Kluang Johor Ahmad Fauzi Disahkan
+3 18/02/2026 Pertandingan Kemahiran ICT Peringkat Bengkel ICT Johor Bahru Johor Siti Nur Aisyah Disahkan
+Negeri
+4 25/02/2026 Seminar Kerjaya & Kebolehpasaran Graduan Bengkel Kota Tinggi Johor Ahmad Fauzi Menunggu
+Mekanikal Pengesahan
+5 02/03/2026 Bengkel Kemahiran Insaniah Pelajar Bengkel ICT Petaling Selangor Siti Nur Aisyah Menunggu
+Pengesahan
+========== PAGE 15 ==========
+6 09/03/2026 Gotong-Royong Perdana Kampus Bengkel Binaan Kota Tinggi Johor Rizal Hakim Menunggu Semakan
+7 16/03/2026 Lawatan Penanda Aras ke ADTEC Melaka Bengkel Melaka Melaka Rizal Hakim Menunggu Semakan
+Automotif Tengah
+8 23/03/2026 Program Jejak Kasih Anak Yatim Bengkel Elektrik Kota Bharu Kelantan Ahmad Fauzi Draf
+9 30/03/2026 Kem Motivasi Pelajar Tahun Akhir Bengkel ICT Kuantan Pahang Siti Nur Aisyah Draf
+10 06/04/2026 Karnival Kerjaya & Pameran Industri Bengkel Kota Tinggi Johor Rizal Hakim Ditolak
+Mekanikal
+Set data dummy penuh (disyorkan 40–60 rekod merentasi 12 bulan, pelbagai bengkel/negeri/daerah bagi menghasilkan carta statistik yang bermakna) disediakan sebagai skrip
+INSERT SQL dalam Lampiran, Bahagian 20.
+========== PAGE 16 ==========
+15. Modul Statistik & Papan Pemuka
+Statistik dikira hanya berdasarkan rekod berstatus disahkan, menggunakan tarikh_pelaksanaan sebagai asas pengiraan tempoh.
+15.1 Statistik Mengikut Tempoh
+Tempoh Kaedah Pengiraan
+Harian Kumpulan (group by) mengikut tarikh_pelaksanaan; papar bilangan aktiviti bagi 30 hari terkini (line/bar chart).
+Mingguan Kumpulan mengikut minggu ISO (Isnin–Ahad); papar bilangan bagi 12 minggu terkini.
+Bulanan Kumpulan mengikut bulan/tahun; papar bilangan bagi 12 bulan terkini.
+Tahunan Kumpulan mengikut tahun; papar trend beberapa tahun (jika data tersedia).
+15.2 Statistik Mengikut Lokasi
+Bilangan pelaksanaan aktiviti mengikut Daerah – boleh ditapis mengikut tempoh (harian/mingguan/bulanan/tahunan).
+Bilangan pelaksanaan aktiviti mengikut Negeri – boleh ditapis mengikut tempoh yang sama.
+Paparan carta bar/peta ringkas bagi perbandingan antara negeri/daerah.
+15.3 Halaman Utama (Dashboard Awam Dalaman)
+Selepas log masuk, halaman utama memaparkan kad ringkasan glassmorphism yang menunjukkan:
+Jumlah keseluruhan aktiviti disahkan (kesemua masa).
+Jumlah aktiviti disahkan bulan semasa vs bulan lepas (peratus perubahan).
+Carta ringkas 6 bulan terkini (trend bulanan).
+3 Negeri/Daerah paling aktif (top locations) bagi tempoh semasa.
+(Khusus Pengajar/Penyelaras) – bilangan rekod menunggu tindakan masing-masing.
+15.4 Contoh Query SQL Statistik Bulanan
+select
+to_char(date_trunc('month', tarikh_pelaksanaan), 'YYYY-MM') as bulan,
+count(*) as jumlah_aktiviti
+from aktiviti
+where status = 'disahkan'
+group by 1
+order by 1;
+select n.nama_negeri, count(*) as jumlah_aktiviti
+from aktiviti a
+join negeri n on n.id = a.negeri_id
+where a.status = 'disahkan'
+and a.tarikh_pelaksanaan >= date_trunc('year', current_date)
+group by n.nama_negeri
+order by jumlah_aktiviti desc;
+========== PAGE 17 ==========
+16. Senario Penggunaan (User Stories)
+Sebagai Saya mahu Supaya
+Pengajar memasukkan rekod aktiviti dengan pantas menggunakan borang data dapat dihantar untuk semakan tanpa perlu isi borang
+ringkas kertas
+Pengajar memadam rekod draf yang tersalah masuk tidak menghantar data yang salah kepada Penyelaras
+Pengajar menghantar beberapa rekod sekali gus (pukal) tidak perlu klik hantar berulang kali bagi setiap rekod
+Penyelaras melihat semua rekod menunggu semakan dalam satu senarai dapat menyemak dengan cepat & sistematik
+Penyelaras memulangkan rekod yang tidak lengkap kepada Pengajar data yang dihantar ke Penolong Pengarah sentiasa tepat
+Penolong Pengarah mengesahkan banyak rekod sekali gus proses kelulusan menjadi lebih pantas & cekap
+Penolong Pengarah melihat statistik pelaksanaan mengikut negeri/daerah dapat membuat keputusan & pelaporan pengurusan atasan
+Semua peranan log masuk dengan selamat menggunakan akaun sendiri data sensitif terlindung & setiap tindakan boleh dijejaki
+17. Kriteria Penerimaan (Acceptance Criteria)
+AC-1: Pengguna bagi ketiga-tiga peranan (Pengajar, Penyelaras, Penolong Pengarah) boleh log masuk menggunakan akaun dummy
+yang disediakan dan diarahkan ke papan pemuka yang betul mengikut peranan.
+AC-2: Pengajar berjaya mencipta, mengedit, memadam rekod draf, dan menghantar rekod secara individu mahupun pukal – status
+bertukar kepada "Menunggu Semakan".
+AC-3: Penyelaras berjaya menghantar rekod ke Penolong Pengarah (individu/pukal) atau memulangkannya ke Pengajar dengan catatan
+– status bertukar sewajarnya.
+AC-4: Penolong Pengarah berjaya mengesahkan (individu/pukal) atau menolak rekod (individu, dengan sebab wajib) – status akhir
+tepat.
+AC-5: Jadual paparan data memaparkan kesemua 7 lajur yang ditetapkan (Bil., Tarikh, Nama Aktiviti, Bengkel, Daerah, Negeri,
+Pengurus Aktiviti) dengan tepat dan boleh disusun/ditapis/dicari.
+AC-6: Statistik harian, mingguan, bulanan & tahunan – termasuk mengikut daerah & negeri – dipaparkan dengan tepat berdasarkan
+data yang disahkan sahaja.
+AC-7: Halaman utama memaparkan statistik ringkas keseluruhan tanpa perlu navigasi tambahan.
+AC-8: Reka bentuk UI menggunakan kesan glassmorphism yang konsisten pada semua skrin utama, dan responsif pada skrin mudah
+alih/tablet/desktop.
+AC-9: RLS berfungsi dengan betul – setiap peranan hanya boleh melihat/mengubah data yang dibenarkan (disahkan melalui ujian
+akaun berbeza).
+AC-10: Sistem berjaya dideploy & boleh diakses secara live melalui URL Netlify, disambungkan kepada projek Supebase sebenar
+(bukan mock/local).
+========== PAGE 18 ==========
+18. Pelan Pembangunan & Deployment
+Fasa Aktiviti Output
+Fasa 0 Persediaan projek Supabase, cipta skema & jadual rujukan, aktifkan RLS Pangkalan data sedia dengan struktur
+penuh
+Fasa 1 Penjanaan antara muka & komponen menggunakan z.ai (GLM 5.2) berdasarkan PRD ini – Kod frontend React/Next.js + Tailwind
+termasuk gaya glassmorphism
+Fasa 2 Integrasi Supabase Auth & API (CRUD aktiviti, alur status) Modul Pengajar/Penyelaras/Penolong
+Pengarah berfungsi
+Fasa 3 Pembangunan modul statistik & papan pemuka (carta) Dashboard statistik lengkap
+Fasa 4 Masukkan data dummy/seed ke Supabase; ujian dalaman (SIT) Sistem berfungsi penuh dengan data
+demo
+Fasa 5 Deploy ke Netlify, konfigurasi pembolehubah persekitaran Sistem live & boleh diakses
+Fasa 6 Ujian Penerimaan Pengguna (UAT) oleh Pengajar/Penyelaras/Penolong Pengarah sebenar Maklum balas & pembetulan
+Fasa 7 Pelancaran rasmi & latihan pengguna Sistem produksi + manual pengguna
+19. Risiko & Mitigasi
+Risiko Kesan Mitigasi
+Data dummy tertinggal dalam Statistik/laporan tidak tepat Skrip pembersihan data dummy disediakan berasingan sebelum
+persekitaran produksi pelancaran sebenar
+Kesan glassmorphism menjejaskan Isu kebolehcapaian (accessibility) Uji kontras WCAG AA; sediakan mod kontras tinggi alternatif
+kebolehbacaan pada latar terang/gelap
+tertentu
+Kesilapan konfigurasi RLS Kebocoran data antara peranan Ujian RLS menyeluruh menggunakan akaun dummy setiap peranan
+sebelum UAT
+Had penjanaan kod oleh model AI (GLM Kefungsian tidak lengkap Semakan manual & ujian oleh jurutera perisian selepas setiap penjanaan
+5.2) tidak menepati spesifikasi kod
+kompleks
+Had kuota percuma Supabase/Netlify Gangguan perkhidmatan bila skala Pantau penggunaan & naik taraf pelan mengikut keperluan
+meningkat
+========== PAGE 19 ==========
+20. Lampiran – Skrip SQL Penuh (Skema + RLS + Seed Data)
+Skrip berikut boleh dijalankan terus dalam Supabase SQL Editor mengikut turutan. Ia mencipta skema penuh, mengaktifkan RLS, dan memasukkan data dummy ke dalam
+backend sebenar (bukan mock data pada frontend).
+-- =====================================================
+-- 1. ENUM TYPES
+-- =====================================================
+create type user_role as enum
+('pengajar','penyelaras','penolong_pengarah','admin');
+create type aktiviti_status as enum
+('draf','menunggu_semakan','menunggu_pengesahan','disahkan','ditolak');
+-- =====================================================
+-- 2. JADUAL RUJUKAN
+-- =====================================================
+create table negeri (
+id uuid primary key default gen_random_uuid(),
+nama_negeri text not null unique
+);
+create table daerah (
+id uuid primary key default gen_random_uuid(),
+nama_daerah text not null,
+negeri_id uuid references negeri(id) not null
+);
+create table bengkel (
+id uuid primary key default gen_random_uuid(),
+nama_bengkel text not null unique
+);
+-- =====================================================
+-- 3. PROFIL PENGGUNA (dipautkan ke auth.users)
+-- =====================================================
+create table profiles (
+id uuid primary key references auth.users(id) on delete cascade,
+full_name text not null,
+email text not null,
+role user_role not null,
+bengkel_id uuid references bengkel(id),
+created_at timestamptz default now()
+);
+-- =====================================================
+-- 4. JADUAL AKTIVITI (UTAMA)
+-- =====================================================
+create table aktiviti (
+id uuid primary key default gen_random_uuid(),
+tarikh_pelaksanaan date not null,
+nama_aktiviti text not null,
+bengkel_id uuid references bengkel(id) not null,
+negeri_id uuid references negeri(id) not null,
+daerah_id uuid references daerah(id) not null,
+nama_pengurus_aktiviti text not null,
+status aktiviti_status not null default 'draf',
+catatan_penolakan text,
+dicipta_oleh uuid references profiles(id) not null,
+disemak_oleh uuid references profiles(id),
+disahkan_oleh uuid references profiles(id),
+dihantar_semakan_pada timestamptz,
+dihantar_pengesahan_pada timestamptz,
+disahkan_pada timestamptz,
+created_at timestamptz default now(),
+updated_at timestamptz default now()
+);
+-- =====================================================
+-- 5. LOG AUDIT
+-- =====================================================
+create table audit_log (
+id bigint generated always as identity primary key,
+aktiviti_id uuid references aktiviti(id) not null,
+tindakan text not null,
+oleh uuid references profiles(id) not null,
+catatan text,
+dicipta_pada timestamptz default now()
+);
+-- =====================================================
+-- 6. AKTIFKAN RLS
+-- =====================================================
+alter table aktiviti enable row level security;
+alter table profiles enable row level security;
+alter table audit_log enable row level security;
+========== PAGE 20 ==========
+-- (Polisi terperinci: rujuk Bahagian 13.1 dokumen ini)
+-- =====================================================
+-- 7. DATA RUJUKAN DUMMY - NEGERI
+-- =====================================================
+insert into negeri (nama_negeri) values
+('Johor'), ('Kedah'), ('Kelantan'), ('Melaka'), ('Negeri Sembilan'),
+('Pahang'), ('Perak'), ('Perlis'), ('Pulau Pinang'), ('Sabah'),
+('Sarawak'), ('Selangor'), ('Terengganu'),
+('W.P. Kuala Lumpur'), ('W.P. Labuan'), ('W.P. Putrajaya');
+-- =====================================================
+-- 8. DATA RUJUKAN DUMMY - BENGKEL
+-- =====================================================
+insert into bengkel (nama_bengkel) values
+('Tek. Pendawaian Elektrik 3 Fasa'),
+('Tek. Penyejukbekuan & Penyamanan Udara'),
+('Tek. Komputer (Sistem)'),
+('Diploma Tek. Elektrik (Kuasa)'),
+('Tek. Penyenggaraan Mekanikal'),
+('Tek. Pembuatan (Pemesinan)'),
+('Tek. Pem. Paip Minyak & Gas'),
+('Tek. Binaan (Berasaskan Kayu)'),
+('Tek. Binaan (Paip & Sanitari)'),
+('Tek. Binaan (Sivil & Struktur)');
+-- =====================================================
+-- 9. DATA RUJUKAN DUMMY - DAERAH (sampel, Johor & Selangor)
+-- =====================================================
+insert into daerah (nama_daerah, negeri_id)
+select 'Kota Tinggi', id from negeri where nama_negeri = 'Johor'
+union all
+select 'Johor Bahru', id from negeri where nama_negeri = 'Johor'
+union all
+select 'Kluang', id from negeri where nama_negeri = 'Johor'
+union all
+select 'Petaling', id from negeri where nama_negeri = 'Selangor'
+union all
+select 'Klang', id from negeri where nama_negeri = 'Selangor'
+union all
+select 'Kota Bharu', id from negeri where nama_negeri = 'Kelantan'
+union all
+select 'Melaka Tengah', id from negeri where nama_negeri = 'Melaka'
+union all
+select 'Kuantan', id from negeri where nama_negeri = 'Pahang';
+-- =====================================================
+-- 10. AKAUN PENGGUNA DUMMY
+-- Nota: akaun auth.users perlu dicipta dahulu melalui
+-- Supabase Auth (Dashboard / supabase.auth.admin.createUser)
+-- sebelum baris 'profiles' berikut dimasukkan, kerana
+-- profiles.id merujuk kepada auth.users.id.
+-- =====================================================
+-- Contoh selepas akaun auth dicipta (gantikan UUID sebenar):
+-- insert into profiles (id, full_name, email, role, bengkel_id) values
+-- ('<uuid-auth-1>','Admin Sistem','admin@adtec-kt.edu.my','admin', null),
+-- ('<uuid-auth-2>','Ahmad Fauzi','ahmad.fauzi@adtec-kt.edu.my','pengajar',
+-- (select id from bengkel where nama_bengkel='Bengkel Elektrik')),
+-- ('<uuid-auth-3>','Siti Nur Aisyah','siti.aisyah@adtec-kt.edu.my','pengajar',
+-- (select id from bengkel where nama_bengkel='Bengkel ICT')),
+-- ('<uuid-auth-4>','Noraini Yusof','noraini.yusof@adtec-kt.edu.my','penyelaras', null),
+-- ('<uuid-auth-5>','Rosli Ibrahim','rosli.ibrahim@adtec-kt.edu.my','penolong_pengarah', null);
+-- =====================================================
+-- 11. DATA AKTIVITI DUMMY (contoh rangkuman status)
+-- =====================================================
+insert into aktiviti
+(tarikh_pelaksanaan, nama_aktiviti, bengkel_id, negeri_id, daerah_id,
+nama_pengurus_aktiviti, status, dicipta_oleh)
+select
+'2026-02-03', 'Lawatan Industri ke Pabrik Automotif',
+(select id from bengkel where nama_bengkel='Bengkel Automotif'),
+(select id from negeri where nama_negeri='Johor'),
+(select id from daerah where nama_daerah='Kota Tinggi'),
+'Rizal Hakim', 'disahkan', p.id
+from profiles p where p.email = 'rizal.hakim@adtec-kt.edu.my';
+-- (ulang corak INSERT di atas bagi baki 40-60 rekod dummy
+-- merentasi pelbagai tarikh/bengkel/negeri/daerah/status
+-- seperti dalam jadual sampel Bahagian 14.4)
+— Tamat Dokumen PRD: Sistem Rekod Aktiviti Pelajar ADTEC KT (Versi 1.0, 14 Julai 2026) —
