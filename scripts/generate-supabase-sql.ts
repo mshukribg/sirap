@@ -16,9 +16,9 @@ import * as path from 'path'
 
 // Stable UUIDs for reference data (so foreign keys work consistently)
 // We'll use deterministic UUIDs based on names
+import * as crypto from 'crypto'
 function uuidFromName(name: string): string {
   // Simple deterministic UUID v4-like from string hash
-  const crypto = require('crypto')
   const hash = crypto.createHash('md5').update(name).digest('hex')
   return [
     hash.slice(0, 8),

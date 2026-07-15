@@ -6,19 +6,19 @@
 import { Client } from 'pg'
 import * as fs from 'fs'
 import * as path from 'path'
+import * as dns from 'dns'
 
-const SUPABASE_DB_URL = 'postgresql://postgres:wshukri3%4077@db.bcmwnhvzwpgrljvsvjdq.supabase.co:5432/postgres'
-// Note: '@' must be URL-encoded as %40 in connection string
+// Force IPv4 — Supabase pooler/IPv6 routing sometimes fails
+dns.setDefaultResultOrder('ipv4first')
+
+const SUPABASE_DB_URL = process.env.SUPABASE_DB_URL || 'postgresql://postgres:PASSWORD@db.bcmwnhvzwpgrljvsvjdq.supabase.co:5432/postgres'
+// Note: '@' must be URL-encoded as %40 in connection string. Set SUPABASE_DB_URL env var to override.
 
 const SQL_FILE = '/home/z/my-project/download/supabase_setup.sql'
 
 async function main() {
   console.log('Connecting to Supabase database...')
   console.log(`URL: postgresql://postgres:***@db.bcmwnhvzwpgrljvsvjdq.supabase.co:5432/postgres`)
-
-  // Force IPv4 — Supabase pooler/IPv6 routing sometimes fails
-  const dns = require('dns')
-  dns.setDefaultResultOrder('ipv4first')
 
   // Resolve to IPv4 explicitly
   const host = 'db.bcmwnhvzwpgrljvsvjdq.supabase.co'
@@ -30,7 +30,7 @@ async function main() {
     port: 5432,
     database: 'postgres',
     user: 'postgres',
-    password: 'wshukri3@77',
+    password: process.env.SUPABASE_DB_PASSWORD || '',
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 30000,
     query_timeout: 120000,

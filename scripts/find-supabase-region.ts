@@ -19,7 +19,7 @@ const REGIONS = [
 ]
 
 const PROJECT_REF = 'bcmwnhvzwpgrljvsvjdq'
-const PASSWORD = 'wshukri3@77'
+const PASSWORD = process.env.SUPABASE_DB_PASSWORD || ''
 
 async function tryConnect(region: string): Promise<boolean> {
   const host = `aws-0-${region}.pooler.supabase.com`
