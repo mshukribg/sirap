@@ -273,6 +273,17 @@ INSERT INTO daerah (id, nama_daerah, negeri_id, created_at) VALUES ('aaa96a67-f5
 
 -- =============================================================
 -- 10. SEED — Supabase Auth users + profiles
+
+-- Clean up any existing auth.users with our dummy emails (idempotent)
+DELETE FROM auth.users WHERE email IN (
+  'admin@adtec-kt.edu.my',
+  'ahmad.fauzi@adtec-kt.edu.my',
+  'siti.aisyah@adtec-kt.edu.my',
+  'rizal.hakim@adtec-kt.edu.my',
+  'noraini.yusof@adtec-kt.edu.my',
+  'zulkifli.omar@adtec-kt.edu.my',
+  'rosli.ibrahim@adtec-kt.edu.my'
+);
 -- =============================================================
 
 
@@ -310,9 +321,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -325,13 +334,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.262Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- Auth user: ahmad.fauzi@adtec-kt.edu.my
 INSERT INTO auth.users (
@@ -352,9 +355,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -367,13 +368,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.314Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- Auth user: siti.aisyah@adtec-kt.edu.my
 INSERT INTO auth.users (
@@ -394,9 +389,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -409,13 +402,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.379Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- Auth user: rizal.hakim@adtec-kt.edu.my
 INSERT INTO auth.users (
@@ -436,9 +423,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -451,13 +436,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.470Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- Auth user: noraini.yusof@adtec-kt.edu.my
 INSERT INTO auth.users (
@@ -478,9 +457,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -493,13 +470,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.552Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- Auth user: zulkifli.omar@adtec-kt.edu.my
 INSERT INTO auth.users (
@@ -520,9 +491,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -535,13 +504,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.594Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- Auth user: rosli.ibrahim@adtec-kt.edu.my
 INSERT INTO auth.users (
@@ -562,9 +525,7 @@ INSERT INTO auth.users (
   now(),
   NULL,
   '', '', '', ''
-) ON CONFLICT (email) DO UPDATE SET
-  encrypted_password = EXCLUDED.encrypted_password,
-  updated_at = now();
+);
 
 -- Profile entry
 INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
@@ -577,13 +538,7 @@ VALUES (
   true,
   '2026-07-14T10:27:42.662Z',
   now()
-) ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email,
-  full_name = EXCLUDED.full_name,
-  role = EXCLUDED.role,
-  bengkel_id = EXCLUDED.bengkel_id,
-  active = EXCLUDED.active,
-  updated_at = now();
+);
 
 -- =============================================================
 -- 11. SEED — aktiviti (51 records across all statuses)
