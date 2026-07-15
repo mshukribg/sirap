@@ -7,19 +7,21 @@
 -- Project: https://bcmwnhvzwpgrljvsvjdq.supabase.co
 -- Target: Supabase SQL Editor (run all at once)
 --
--- This script is IDEMPOTENT — safe to re-run (uses DROP IF EXISTS / ON CONFLICT).
+-- This script is IDEMPOTENT — safe to re-run (uses DELETE IF EXISTS + DROP CASCADE).
 -- It will:
 --   1. Create ENUM types
---   2. Create all tables with proper foreign keys
+--   2. Create all tables with proper foreign keys (profiles, aktiviti, audit_log, etc.)
 --   3. Enable Row Level Security (RLS) with role-based policies
---   4. Create Supabase Auth users (admin, pengajar, penyelaras, penolong_pengarah)
---   5. Link profiles to auth.users
---   6. Insert all reference data (bengkel, negeri, daerah)
---   7. Insert 51 aktiviti records across all 5 statuses
---   8. Insert audit_log entries and notifications
+--   4. Insert all reference data (bengkel, negeri, daerah)
+--   5. Insert 7 user profiles with scrypt-hashed passwords
+--      (login uses password_hash column via Prisma, NOT Supabase Auth)
+--   6. Insert 52 aktiviti records across all 5 statuses
+--   7. Insert audit_log entries and notifications
+--   8. Create triggers for auto-updating updated_at
 --
 -- IMPORTANT: After running this, the system is ready. Dummy passwords
--- match the PRD section 14.1.
+-- match the PRD section 14.1. The app uses custom session-based auth
+-- (scrypt password hashing) — NOT Supabase Auth.
 --
 
 -- =============================================================
@@ -27,6 +29,7 @@
 -- =============================================================
 
 
+DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS audit_log CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS aktiviti CASCADE;
@@ -77,15 +80,16 @@ CREATE TABLE daerah (
 
 
 -- =============================================================
--- 3. PROFILES — linked to auth.users
+-- 3. PROFILES — users with scrypt-hashed passwords (custom auth, not Supabase Auth)
 -- =============================================================
 
 
 CREATE TABLE profiles (
-  id            uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email         text NOT NULL UNIQUE,
   full_name     text NOT NULL,
   role          user_role NOT NULL,
+  password_hash text,
   bengkel_id    uuid REFERENCES bengkel(id),
   active        boolean NOT NULL DEFAULT true,
   created_at    timestamptz DEFAULT now(),
@@ -94,6 +98,16 @@ CREATE TABLE profiles (
 
 CREATE INDEX idx_profiles_role ON profiles(role);
 CREATE INDEX idx_profiles_bengkel ON profiles(bengkel_id);
+
+-- Sessions table (for custom session-based auth, mirroring Prisma schema)
+CREATE TABLE sessions (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token       text NOT NULL UNIQUE,
+  profile_id  uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  expires_at  timestamptz NOT NULL,
+  created_at  timestamptz DEFAULT now()
+);
+CREATE INDEX idx_sessions_profile ON sessions(profile_id);
 
 
 -- =============================================================
@@ -272,10 +286,11 @@ INSERT INTO daerah (id, nama_daerah, negeri_id, created_at) VALUES ('8cbd221b-eb
 INSERT INTO daerah (id, nama_daerah, negeri_id, created_at) VALUES ('aaa96a67-f538-46f5-8bbf-0a917a6c612d', 'Wilayah Persekutuan Putrajaya', 'ef84f26e-9f69-4bcf-8450-600da7c6712d', '2026-07-14T10:27:42.191Z');
 
 -- =============================================================
--- 10. SEED — Supabase Auth users + profiles
+-- 10. SEED — Profiles (with scrypt password hashes)
+-- =============================================================
 
--- Clean up any existing auth.users with our dummy emails (idempotent)
-DELETE FROM auth.users WHERE email IN (
+-- Clean up existing profiles (idempotent — safe to re-run)
+DELETE FROM profiles WHERE email IN (
   'admin@adtec-kt.edu.my',
   'ahmad.fauzi@adtec-kt.edu.my',
   'siti.aisyah@adtec-kt.edu.my',
@@ -284,12 +299,9 @@ DELETE FROM auth.users WHERE email IN (
   'zulkifli.omar@adtec-kt.edu.my',
   'rosli.ibrahim@adtec-kt.edu.my'
 );
--- =============================================================
 
-
--- Create auth.users entries using the admin API-compatible function
--- NOTE: This uses auth.users directly. Passwords are hashed by Supabase.
--- Dummy passwords (PRD §14.1):
+-- Dummy passwords (PRD §14.1) — these are scrypt-hashed and stored in
+-- the password_hash column. The login API uses these hashes to verify.
 --   admin@adtec-kt.edu.my           / Admin@2026
 --   ahmad.fauzi@adtec-kt.edu.my     / Pengajar@123
 --   siti.aisyah@adtec-kt.edu.my     / Pengajar@123
@@ -298,242 +310,98 @@ DELETE FROM auth.users WHERE email IN (
 --   zulkifli.omar@adtec-kt.edu.my   / Penyelaras@123
 --   rosli.ibrahim@adtec-kt.edu.my   / PPengarah@123
 
--- We need to insert into auth.users with encrypted_password.
--- This requires the supabase_admin role which is available in SQL Editor.
-
-
--- Auth user: admin@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  '863343e8-1662-4a1c-8037-b9220f821ab4',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'admin@adtec-kt.edu.my',
-  crypt('Admin@2026', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.262Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   '863343e8-1662-4a1c-8037-b9220f821ab4',
   'admin@adtec-kt.edu.my',
   'Admin Sistem',
   'admin',
+  'f009f30eb09dceccd8c91de8ec863753:a58d5cdd820ac0a191875a6e5ee99bcb5a8fbc0e5527b29740b12f16a62d03859300a21316df69cf02fbb3e81cff689d345e9e2bffca47415a996cd568ac6792',
   NULL,
   true,
   '2026-07-14T10:27:42.262Z',
   now()
 );
 
--- Auth user: ahmad.fauzi@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  'd1596fc8-7523-4706-873f-3ab8d166d75b',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'ahmad.fauzi@adtec-kt.edu.my',
-  crypt('Pengajar@123', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.314Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   'd1596fc8-7523-4706-873f-3ab8d166d75b',
   'ahmad.fauzi@adtec-kt.edu.my',
   'Ahmad Fauzi',
   'pengajar',
+  '6c9b89df06299d017c4f65dd2ca9aa38:6b20425bf82feb37ce585e97d8289120d434e1b20623d1db1ad9c2940b606035d65aa020eedda947a48264a82aa2d28f8f8a24fa2b3aa136d14f8492287d2159',
   '1255b17d-a256-4e00-8d7e-8e1408f1298f',
   true,
   '2026-07-14T10:27:42.314Z',
   now()
 );
 
--- Auth user: siti.aisyah@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  'f66e97cc-3937-42d8-85c3-300f04181824',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'siti.aisyah@adtec-kt.edu.my',
-  crypt('Pengajar@123', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.379Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   'f66e97cc-3937-42d8-85c3-300f04181824',
   'siti.aisyah@adtec-kt.edu.my',
   'Siti Nur Aisyah',
   'pengajar',
+  '6a4c61279d6597fed08b490eea77688f:7eaf5f9f2635f396b5a8a6afa20a982d02a3a3c659a221cceebb3faa3c9f5437a7864f83c7e5cf42cc632de2abaf1f79efb0763155f372e3a50e7eb12a3db1d3',
   '5e55a3e1-d1b9-404f-88a7-439c38504226',
   true,
   '2026-07-14T10:27:42.379Z',
   now()
 );
 
--- Auth user: rizal.hakim@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  '524d7ca6-0c4b-496f-8f63-8d83b5dbec4c',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'rizal.hakim@adtec-kt.edu.my',
-  crypt('Pengajar@123', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.470Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   '524d7ca6-0c4b-496f-8f63-8d83b5dbec4c',
   'rizal.hakim@adtec-kt.edu.my',
   'Rizal Hakim',
   'pengajar',
+  '329296115e6d9fa9091f5998b211e2d8:f904efbfb38909aa716025baddacb64b11c4f0b87465b2a9455a9eb76af845b54547c689a06b47df06e52071ea1ebd50f990ff63b9a7c22d840780304dd6bc3e',
   'ebed6a42-0b8c-4adc-847b-e33eada7c334',
   true,
   '2026-07-14T10:27:42.470Z',
   now()
 );
 
--- Auth user: noraini.yusof@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  'a6b56cbc-df60-4760-80dc-eeb09eae2956',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'noraini.yusof@adtec-kt.edu.my',
-  crypt('Penyelaras@123', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.552Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   'a6b56cbc-df60-4760-80dc-eeb09eae2956',
   'noraini.yusof@adtec-kt.edu.my',
   'Noraini Yusof',
   'penyelaras',
+  '66c9010531f595330859743c81200d11:c833e750b6205e6c1f75a0dbd5323dc2562f9f83b4717bef66d8e8e5e209b0e0d53673a30fa830bc4ccb3eac281cce17128a2d59b8ab4ff6493769bf50171bd1',
   NULL,
   true,
   '2026-07-14T10:27:42.552Z',
   now()
 );
 
--- Auth user: zulkifli.omar@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  '5041226e-151d-49e2-8c58-82bad51b2ad7',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'zulkifli.omar@adtec-kt.edu.my',
-  crypt('Penyelaras@123', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.594Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   '5041226e-151d-49e2-8c58-82bad51b2ad7',
   'zulkifli.omar@adtec-kt.edu.my',
   'Zulkifli Omar',
   'penyelaras',
+  '048e7088e5b2f94f80d1750a904e7e7a:d574ce737805d15233b9f1a0e5976d7dc60babd09c0af5f542cf7c821938f9fcbba5ef832bb9cf5e4cc277602bcbd8f75ada400d4be8267f2d6954bc876f4e4c',
   NULL,
   true,
   '2026-07-14T10:27:42.594Z',
   now()
 );
 
--- Auth user: rosli.ibrahim@adtec-kt.edu.my
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at,
-  confirmation_token, recovery_token, email_change_token_new, email_change
-) VALUES (
-  '64b782ff-4756-4de5-891d-2bd174a6c6b5',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated',
-  'authenticated',
-  'rosli.ibrahim@adtec-kt.edu.my',
-  crypt('PPengarah@123', gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  '2026-07-14T10:27:42.662Z',
-  now(),
-  NULL,
-  '', '', '', ''
-);
-
 -- Profile entry
-INSERT INTO profiles (id, email, full_name, role, bengkel_id, active, created_at, updated_at)
+INSERT INTO profiles (id, email, full_name, role, password_hash, bengkel_id, active, created_at, updated_at)
 VALUES (
   '64b782ff-4756-4de5-891d-2bd174a6c6b5',
   'rosli.ibrahim@adtec-kt.edu.my',
   'Rosli Ibrahim',
   'penolong_pengarah',
+  'c0c94963256bb577dd9d3df534c5e669:582ee75b4fccef3e3c1053eb4a0321c53e666ee0cf12758132d7640e2ff99b70f04aa15e7ac7d3e07bad3e73438588b850c566d9c759d867173b3c3fb9238fad',
   NULL,
   true,
   '2026-07-14T10:27:42.662Z',
@@ -1009,4 +877,4 @@ UNION ALL SELECT 'profiles', count(*) FROM profiles
 UNION ALL SELECT 'aktiviti', count(*) FROM aktiviti
 UNION ALL SELECT 'audit_log', count(*) FROM audit_log
 UNION ALL SELECT 'notifications', count(*) FROM notifications
-UNION ALL SELECT 'auth_users', count(*) FROM auth.users;
+UNION ALL SELECT 'sessions', count(*) FROM sessions;

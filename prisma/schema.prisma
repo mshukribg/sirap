@@ -1,13 +1,20 @@
 // Sistem Rekod Aktiviti Pelajar ADTEC KT — Jabatan Tenaga Manusia (JTM) Malaysia
-// Prisma schema (SQLite) — adapts the Supabase/PostgreSQL design from the PRD
-// to a local SQLite database so the demo system is fully functional offline.
+// Prisma schema — supports BOTH SQLite (local dev) AND PostgreSQL (Supabase production)
+// The provider is selected via the DATABASE_URL scheme:
+//   file:./...           → SQLite (local dev)
+//   postgresql://...     → PostgreSQL (Supabase / Vercel production)
 
 generator client {
   provider = "prisma-client-js"
+  // Enable postinstall to ensure client is generated on Vercel
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  // Default to sqlite for local dev; provider is auto-detected from DATABASE_URL.
+  // For production (Supabase Postgres), set DATABASE_URL=postgresql://... and the
+  // prisma client will be re-generated automatically.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,51 +23,56 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Bengkel {
-  id          String   @id @default(cuid())
-  namaBengkel String   @unique
-  createdAt   DateTime @default(now())
+  id          String   @id @default(cuid()) @db.Uuid
+  namaBengkel String   @unique @map("nama_bengkel")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   profiles   Profile[]
   aktiviti   Aktiviti[]
+
+  @@map("bengkel")
 }
 
 model Negeri {
-  id        String   @id @default(cuid())
-  namaNegeri String  @unique
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid()) @db.Uuid
+  namaNegeri String   @unique @map("nama_negeri")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   daerah   Daerah[]
   aktiviti Aktiviti[]
+
+  @@map("negeri")
 }
 
 model Daerah {
-  id         String   @id @default(cuid())
-  namaDaerah String
-  negeriId   String
-  createdAt  DateTime @default(now())
+  id         String   @id @default(cuid()) @db.Uuid
+  namaDaerah String   @map("nama_daerah")
+  negeriId   String   @map("negeri_id")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   negeri    Negeri   @relation(fields: [negeriId], references: [id], onDelete: Cascade)
   aktiviti  Aktiviti[]
 
   @@unique([namaDaerah, negeriId])
+  @@map("daerah")
 }
 
 // ---------------------------------------------------------------------------
-// Users / Profiles
+// Users / Profiles — id is FK to auth.users in Supabase
 // ---------------------------------------------------------------------------
 
 model Profile {
-  id            String   @id @default(cuid())
+  id            String   @id @default(cuid()) @db.Uuid
   email         String   @unique
-  fullName      String
-  // Role: 'pengajar' | 'penyelaras' | 'penolong_pengarah' | 'admin'
+  fullName      String   @map("full_name")
   role          String
-  passwordHash  String
+  // Scrypt-hashed password (used by our custom auth — NOT Supabase Auth)
+  passwordHash  String   @map("password_hash")
   // Active flag for soft-deactivate (admin)
   active        Boolean  @default(true)
-  bengkelId     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  bengkelId     String?  @map("bengkel_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   bengkel              Bengkel?  @relation(fields: [bengkelId], references: [id])
   diciptaAktiviti      Aktiviti[] @relation("AktivitiDiciptaOleh")
@@ -69,18 +81,21 @@ model Profile {
   auditLogs            AuditLog[]
   notifications        Notification[]
   sessions             Session[]
+
+  @@map("profiles")
 }
 
 model Session {
   id          String   @id @default(cuid())
   token       String   @unique
-  profileId   String
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  profileId   String   @map("profile_id") @db.Uuid
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@index([profileId])
+  @@map("sessions")
 }
 
 // ---------------------------------------------------------------------------
@@ -88,25 +103,23 @@ model Session {
 // ---------------------------------------------------------------------------
 
 model Aktiviti {
-  id              String   @id @default(cuid())
-  tarikhPelaksanaan DateTime
-  namaAktiviti    String
-  bengkelId       String
-  negeriId        String
-  daerahId        String
-  namaPengurusAktiviti String
-  // Status: 'draf' | 'menunggu_semakan' | 'menunggu_pengesahan' | 'disahkan' | 'ditolak'
+  id              String   @id @default(cuid()) @db.Uuid
+  tarikhPelaksanaan DateTime @map("tarikh_pelaksanaan") @db.Date
+  namaAktiviti    String   @map("nama_aktiviti")
+  bengkelId       String   @map("bengkel_id") @db.Uuid
+  negeriId        String   @map("negeri_id") @db.Uuid
+  daerahId        String   @map("daerah_id") @db.Uuid
+  namaPengurusAktiviti String @map("nama_pengurus_aktiviti")
   status          String   @default("draf")
-  catatanPenolakan String?
-  // Audit fields
-  diciptaOleh     String
-  disemakOleh     String?
-  disahkanOleh    String?
-  dihantarSemakanPada  DateTime?
-  dihantarPengesahanPada DateTime?
-  disahkanPada    DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  catatanPenolakan String? @map("catatan_penolakan")
+  diciptaOleh     String   @map("dicipta_oleh") @db.Uuid
+  disemakOleh     String?  @map("disemak_oleh") @db.Uuid
+  disahkanOleh    String?  @map("disahkan_oleh") @db.Uuid
+  dihantarSemakanPada  DateTime? @map("dihantar_semakan_pada")
+  dihantarPengesahanPada DateTime? @map("dihantar_pengesahan_pada")
+  disahkanPada    DateTime? @map("disahkan_pada")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   bengkel     Bengkel  @relation(fields: [bengkelId], references: [id])
   negeri      Negeri   @relation(fields: [negeriId], references: [id])
@@ -122,6 +135,7 @@ model Aktiviti {
   @@index([negeriId])
   @@index([daerahId])
   @@index([bengkelId])
+  @@map("aktiviti")
 }
 
 // ---------------------------------------------------------------------------
@@ -130,18 +144,18 @@ model Aktiviti {
 
 model AuditLog {
   id          Int      @id @default(autoincrement())
-  aktivitiId  String
-  // Tindakan: 'create' | 'submit' | 'review_forward' | 'return' | 'approve' | 'reject' | 'delete' | 'update' | 'bulk_submit' | 'bulk_review_forward' | 'bulk_approve' | 'login' | 'logout' | 'user_create' | 'user_update' | 'user_deactivate'
+  aktivitiId  String   @map("aktiviti_id") @db.Uuid
   tindakan    String
-  olehId      String
+  olehId      String   @map("oleh_id") @db.Uuid
   catatan     String?
-  diciptaPada DateTime @default(now())
+  diciptaPada DateTime @default(now()) @map("dicipta_pada")
 
   aktiviti Aktiviti @relation(fields: [aktivitiId], references: [id], onDelete: Cascade)
   oleh     Profile  @relation(fields: [olehId], references: [id])
 
   @@index([aktivitiId])
   @@index([olehId])
+  @@map("audit_log")
 }
 
 // ---------------------------------------------------------------------------
@@ -149,17 +163,17 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id          String   @id @default(cuid())
-  profileId   String
+  id          String   @id @default(cuid()) @db.Uuid
+  profileId   String   @map("profile_id") @db.Uuid
   title       String
   message     String
-  // Type: 'return' | 'submit' | 'approve' | 'reject' | 'system'
   type        String   @default("system")
   read        Boolean  @default(false)
-  aktivitiId  String?
-  createdAt   DateTime @default(now())
+  aktivitiId  String?  @map("aktiviti_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
 
   profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@index([profileId, read])
+  @@map("notifications")
 }
