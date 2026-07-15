@@ -70,8 +70,16 @@ export async function POST(req: NextRequest) {
       bengkel: profile.bengkel ? { id: profile.bengkel.id, namaBengkel: profile.bengkel.namaBengkel } : null,
     }
     return NextResponse.json({ ok: true, profile: safeProfile })
-  } catch (e) {
+  } catch (e: any) {
     console.error('Login error:', e)
-    return NextResponse.json({ ok: false, error: 'Ralat pelayan. Sila cuba lagi.' }, { status: 500 })
+    // Expose error message in development/preview for easier debugging
+    const isProd = process.env.NODE_ENV === 'production'
+    const errorMsg = isProd
+      ? 'Ralat pelayan. Sila cuba lagi.'
+      : `Ralat pelayan: ${e?.message ?? 'Unknown error'}`
+    return NextResponse.json(
+      { ok: false, error: errorMsg, details: isProd ? undefined : String(e?.message ?? e) },
+      { status: 500 }
+    )
   }
 }

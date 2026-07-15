@@ -1,19 +1,13 @@
 // Sistem Rekod Aktiviti Pelajar ADTEC KT — Jabatan Tenaga Manusia (JTM) Malaysia
-// Prisma schema — supports BOTH SQLite (local dev) AND PostgreSQL (Supabase production)
-// The provider is selected via the DATABASE_URL scheme:
-//   file:./...           → SQLite (local dev)
-//   postgresql://...     → PostgreSQL (Supabase / Vercel production)
+// Prisma schema — PostgreSQL (Supabase production)
+// Local dev: use Supabase too (set DATABASE_URL in .env)
 
 generator client {
   provider = "prisma-client-js"
-  // Enable postinstall to ensure client is generated on Vercel
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  // Default to sqlite for local dev; provider is auto-detected from DATABASE_URL.
-  // For production (Supabase Postgres), set DATABASE_URL=postgresql://... and the
-  // prisma client will be re-generated automatically.
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
@@ -23,7 +17,7 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Bengkel {
-  id          String   @id @default(cuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   namaBengkel String   @unique @map("nama_bengkel")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -34,7 +28,7 @@ model Bengkel {
 }
 
 model Negeri {
-  id         String   @id @default(cuid()) @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   namaNegeri String   @unique @map("nama_negeri")
   createdAt  DateTime @default(now()) @map("created_at")
 
@@ -45,9 +39,9 @@ model Negeri {
 }
 
 model Daerah {
-  id         String   @id @default(cuid()) @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   namaDaerah String   @map("nama_daerah")
-  negeriId   String   @map("negeri_id")
+  negeriId   String   @map("negeri_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at")
 
   negeri    Negeri   @relation(fields: [negeriId], references: [id], onDelete: Cascade)
@@ -58,16 +52,16 @@ model Daerah {
 }
 
 // ---------------------------------------------------------------------------
-// Users / Profiles — id is FK to auth.users in Supabase
+// Users / Profiles — custom auth (scrypt password hashing)
 // ---------------------------------------------------------------------------
 
 model Profile {
-  id            String   @id @default(cuid()) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   email         String   @unique
   fullName      String   @map("full_name")
   role          String
   // Scrypt-hashed password (used by our custom auth — NOT Supabase Auth)
-  passwordHash  String   @map("password_hash")
+  passwordHash  String?  @map("password_hash")
   // Active flag for soft-deactivate (admin)
   active        Boolean  @default(true)
   bengkelId     String?  @map("bengkel_id") @db.Uuid
@@ -86,7 +80,7 @@ model Profile {
 }
 
 model Session {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid()) @db.Uuid
   token       String   @unique
   profileId   String   @map("profile_id") @db.Uuid
   expiresAt   DateTime @map("expires_at")
@@ -103,7 +97,7 @@ model Session {
 // ---------------------------------------------------------------------------
 
 model Aktiviti {
-  id              String   @id @default(cuid()) @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
   tarikhPelaksanaan DateTime @map("tarikh_pelaksanaan") @db.Date
   namaAktiviti    String   @map("nama_aktiviti")
   bengkelId       String   @map("bengkel_id") @db.Uuid
@@ -163,7 +157,7 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id          String   @id @default(cuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   profileId   String   @map("profile_id") @db.Uuid
   title       String
   message     String
